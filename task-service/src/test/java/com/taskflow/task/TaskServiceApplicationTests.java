@@ -1,4 +1,4 @@
-package com.taskflow.taskservice;
+package com.taskflow.task;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
