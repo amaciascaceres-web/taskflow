@@ -2,6 +2,7 @@ package com.taskflow.task.controller.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.taskflow.task.domain.TaskPriority;
+import com.taskflow.task.domain.TaskStatus;
 
 import java.time.LocalDate;
 
@@ -17,7 +18,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class CreateTaskRequest {
+public class UpdateTaskRequest {
     @JsonProperty("title")
     @NotBlank(message = "Title is required")
     @Size(max = 200, message = "Title must be between 3 and 255 characters")
@@ -32,7 +33,7 @@ public class CreateTaskRequest {
     @JsonProperty("priority")    private TaskPriority priority;
 
 
-    @JsonProperty("status")      private String status;
+    @JsonProperty("status")      private TaskStatus status;
 
     @FutureOrPresent(message = "Due date must be in the future")
     @JsonProperty("dueDate")     private LocalDate dueDate;
