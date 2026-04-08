@@ -8,13 +8,10 @@ import com.taskflow.task.domain.exception.TaskNotFoundException;
 import com.taskflow.task.infrastructure.entity.TaskEntity;
 import com.taskflow.task.infrastructure.repository.TaskRepository;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 
