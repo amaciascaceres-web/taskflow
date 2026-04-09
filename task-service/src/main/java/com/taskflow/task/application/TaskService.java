@@ -14,16 +14,23 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TaskService {
 
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
 
     public TaskResponse createTask(CreateTaskRequest request) {
-        return taskMapper.toResponse(taskRepository.save(taskMapper.toEntity(request)));
+        log.info("Creating task with title='{}' priority='{}'",
+                request.getTitle(), request.getTitle());
+        TaskEntity saved = taskRepository.save(taskMapper.toEntity(request));
+
+        log.info("Created task with id= '{}' ", saved.getId());
+        return taskMapper.toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -38,8 +45,12 @@ public class TaskService {
 
     @Transactional
     public TaskResponse update(Long id, UpdateTaskRequest request) {
+        log.info("Updating task with id= '{}' ", id);
         TaskEntity entity = taskRepository.findById(id)
-                .orElseThrow(() -> new TaskNotFoundException(id));
+                .orElseThrow(() -> {
+                        log.warn("Task not found for deletion id= '{}'", id);
+                        return new TaskNotFoundException(id);
+                        });
 
         entity.setTitle(request.getTitle());
         entity.setDescription(request.getDescription());
@@ -48,12 +59,20 @@ public class TaskService {
         entity.setAssigneeId(request.getAssigneeId());
         entity.setDueDate(request.getDueDate());
 
-        return taskMapper.toResponse(taskRepository.save(entity));
+        TaskEntity updated = taskRepository.save(entity);
+        log.info("Task created successfully id={}", updated.getId());
+        return taskMapper.toResponse(updated);
     }
 
+    @Transactional
     public void delete(Long id) {
-        TaskEntity entity = taskRepository.findById(id)
-                .orElseThrow( (() -> new TaskNotFoundException(id)));
-        taskRepository.delete(entity);
+        log.info("Deleting task id={}", id);
+        TaskEntity task = taskRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.warn("Task not found for deletion id={}", id);
+                    return new TaskNotFoundException(id);
+                });
+        taskRepository.delete(task);
+        log.info("Task deleted id={}", id);
     }
 }
