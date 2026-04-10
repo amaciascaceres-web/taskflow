@@ -1,0 +1,11 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+logging:
+  level:
+    root:            WARN
+    com.taskflow:   DEBUG
+    org.hibernate.SQL: DEBUG

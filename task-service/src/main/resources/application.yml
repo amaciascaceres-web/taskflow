@@ -2,30 +2,23 @@ spring:
   application:
     name: task-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:taskflow}
+    url:      jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:taskflow}
     username: ${DB_USER:taskflow}
     password: ${DB_PASSWORD:taskflow}
   jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
 
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
-
-logging:
-  level:
-    root:                     WARN
-    com.taskflow:             INFO
-    org.springframework.web:  INFO
-  pattern:
-    console: "%d{HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  endpoint:
+    health:
+      show-details: when-authorized
