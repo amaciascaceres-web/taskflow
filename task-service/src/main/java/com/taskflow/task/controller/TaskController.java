@@ -23,7 +23,6 @@ import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/tasks")
-
 public class TaskController {
 
     @Autowired

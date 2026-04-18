@@ -21,10 +21,10 @@ import lombok.Setter;
 public class UpdateTaskRequest {
     @JsonProperty("title")
     @NotBlank(message = "Title is required")
-    @Size(max = 200, message = "Title must be between 3 and 255 characters")
+    @Size(max = 200, message = "Title must be between 3 and 200 characters")
     private String title;
 
-    @Max(value = 2000, message = "Description must be less than 255 characters")
+    @Max(value = 2000, message = "Description must be less than 2000 characters")
     @JsonProperty("description") private String description;
 
     @JsonProperty("assigneeId")  private Long assigneeId;

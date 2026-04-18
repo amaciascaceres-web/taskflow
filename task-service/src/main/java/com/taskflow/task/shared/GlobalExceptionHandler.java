@@ -1,4 +1,4 @@
-package com.taskflow.common.exception;
+package com.taskflow.task.shared;
 
 import com.taskflow.task.domain.exception.TaskNotFoundException;
 
