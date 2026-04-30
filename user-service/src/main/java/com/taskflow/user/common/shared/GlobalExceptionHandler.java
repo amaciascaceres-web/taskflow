@@ -2,6 +2,7 @@ package com.taskflow.user.common.shared;
 
 
 import com.taskflow.user.domain.UserNotFoundException;
+import com.taskflow.user.exception.UserAlreadyExistsException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -67,6 +68,25 @@ public class GlobalExceptionHandler {
                         .status(500)
                         .code("INTERNAL_ERROR")
                         .message("An unexpected error occurred")
+                        .path(req.getRequestURI())
+                        .build());
+    }
+
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ApiErrorResponse> handleUserAlreadyExists(
+            UserAlreadyExistsException ex, HttpServletRequest req) {
+
+        log.warn("User already exists processing {} {}: {}",
+                req.getMethod(),
+                req.getRequestURI(),
+                ex.getMessage());
+
+        return ResponseEntity.status(409).body(
+                ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(409)
+                        .code("USER_ALREADY_EXISTS")
+                        .message(ex.getMessage())
                         .path(req.getRequestURI())
                         .build());
     }

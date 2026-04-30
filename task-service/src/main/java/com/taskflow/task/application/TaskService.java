@@ -5,7 +5,9 @@ import com.taskflow.task.controller.dto.CreateTaskRequest;
 import com.taskflow.task.controller.dto.TaskResponse;
 import com.taskflow.task.controller.dto.UpdateTaskRequest;
 import com.taskflow.task.domain.TaskPriority;
+import com.taskflow.task.domain.exception.AssigneeNotFoundException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
+import com.taskflow.task.infrastructure.client.UserServiceClient;
 import com.taskflow.task.infrastructure.entity.TaskEntity;
 import com.taskflow.task.infrastructure.repository.TaskRepository;
 
@@ -24,15 +26,22 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
+    private final UserServiceClient userServiceClient;
 
+    @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
         log.info("Creating task with title='{}' priority='{}'",
-                request.getTitle(), request.getTitle());
+                request.getTitle(), request.getPriority());
         if(request.getStatus() == null) {
             request.setStatus("todo");
         }
         if (request.getPriority() == null) {
             request.setPriority(TaskPriority.LOW);
+        }
+        if (request.getAssigneeId() != null) {
+            if (!userServiceClient.userExists(request.getAssigneeId())) {
+                throw new AssigneeNotFoundException(request.getAssigneeId());
+            }
         }
         TaskEntity saved = taskRepository.save(taskMapper.toEntity(request));
 

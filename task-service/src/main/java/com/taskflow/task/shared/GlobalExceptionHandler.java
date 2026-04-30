@@ -1,5 +1,6 @@
 package com.taskflow.task.shared;
 
+import com.taskflow.task.domain.exception.AssigneeNotFoundException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
 
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,25 @@ public class GlobalExceptionHandler {
                         .message("Validation failed")
                         .path(req.getRequestURI())
                         .errors(errors)
+                        .build());
+    }
+
+    @ExceptionHandler(AssigneeNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleAssigneeNotFound(
+            AssigneeNotFoundException ex, HttpServletRequest req) {
+
+        log.warn("Assignee not found processing {} {}: {}",
+                req.getMethod(),
+                req.getRequestURI(),
+                ex.getMessage());
+
+        return ResponseEntity.status(404).body(
+                ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(404)
+                        .code("ASSIGNEE_NOT_FOUND")
+                        .message(ex.getMessage())
+                        .path(req.getRequestURI())
                         .build());
     }
 

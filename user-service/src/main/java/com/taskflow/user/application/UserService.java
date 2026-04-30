@@ -3,6 +3,7 @@ package com.taskflow.user.application;
 import com.taskflow.user.controller.dto.UserRequest;
 import com.taskflow.user.controller.dto.UserResponse;
 import com.taskflow.user.domain.UserNotFoundException;
+import com.taskflow.user.exception.UserAlreadyExistsException;
 import com.taskflow.user.infrastructure.entity.UserEntity;
 import com.taskflow.user.infrastructure.repository.UserRepository;
 
@@ -31,6 +32,10 @@ public class UserService {
                 .email(request.getEmail())
                 .team(request.getTeam())
                 .build();
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new UserAlreadyExistsException(request.getEmail());
+        }
 
         UserEntity savedUser = userRepository.save(user);
 
