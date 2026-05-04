@@ -163,3 +163,37 @@ versioned migrations and set `ddl-auto: none`.
   tables, too restrictive for early development
 - Flyway from day one: discarded to keep focus on infrastructure
   topics (Docker, AWS, Kubernetes) rather than migration tooling
+
+## ADR-006: Resilience strategy for user-service calls
+
+**Context:**
+task-service calls user-service synchronously to validate
+the assigneeId when creating tasks. This dependency introduces
+a potential point of failure.
+
+**Decision:**
+Implemented basic differentiated error handling (404 vs 503)
+with a 3000ms timeout on RestTemplate. Circuit Breaker, Retry
+and Fallback patterns were not implemented in this phase.
+
+**Reasons:**
+- Current traffic volume does not justify the operational
+  complexity of Resilience4j
+- An explicit 503 is more honest than a silent fallback
+  in a system without monitoring configured yet
+- With a single instance of user-service, a Circuit Breaker
+  adds no real value over a well-configured timeout
+
+**Consequences:**
++ Simple and predictable code
++ Client receives clear errors and can retry
+- If user-service degrades slowly, threads are exhausted
+  until the timeout kicks in (no fail-fast behaviour)
+- Without retry, a transient network failure returns 503
+  even if user-service is healthy
+
+**Future evolution:**
+Add Resilience4j when the following conditions are met:
+- user-service runs more than one replica
+- The system has observability in place (circuit breaker metrics)
+- Traffic volume justifies protecting Tomcat's thread pool

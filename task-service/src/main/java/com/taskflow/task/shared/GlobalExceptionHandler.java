@@ -1,6 +1,7 @@
 package com.taskflow.task.shared;
 
 import com.taskflow.task.domain.exception.AssigneeNotFoundException;
+import com.taskflow.task.domain.exception.ServiceUnavailableException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
 
 import org.springframework.http.ResponseEntity;
@@ -66,6 +67,19 @@ public class GlobalExceptionHandler {
                         .status(404)
                         .code("ASSIGNEE_NOT_FOUND")
                         .message(ex.getMessage())
+                        .path(req.getRequestURI())
+                        .build());
+    }
+
+    @ExceptionHandler(ServiceUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleServiceUnavailable(
+            ServiceUnavailableException ex, HttpServletRequest req) {
+        log.error("Service unavailable: {}", ex.getMessage());
+        return ResponseEntity.status(503).body(
+                ApiErrorResponse.builder()
+                        .status(503)
+                        .code("SERVICE_UNAVAILABLE")
+                        .message("A downstream service is unavailable. Please try again later.")
                         .path(req.getRequestURI())
                         .build());
     }
