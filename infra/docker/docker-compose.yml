@@ -41,6 +41,41 @@ services:
     networks:
       - taskflow-network
 
+  user-service:
+    build:
+      context: ../../user-service
+      dockerfile: Dockerfile
+    container_name: taskflow-user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST:     postgres
+      DB_PORT:     5432
+      DB_NAME:     taskflow_users
+      DB_USER:     taskflow
+      DB_PASSWORD: taskflow
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskflow-network
+
+  api-gateway:
+    build:
+      context: ../../api-gateway
+    container_name: taskflow-gateway
+    environment:
+      TASK_SERVICE_URL: http://task-service:8080
+      USER_SERVICE_URL: http://user-service:8081
+    ports:
+      - "8090:8090"
+    depends_on:
+      - task-service
+      - user-service
+    networks:
+      - taskflow-network
+
 volumes:
   postgres-data:
 

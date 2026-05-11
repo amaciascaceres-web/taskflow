@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id:          task-service
+          uri:         ${TASK_SERVICE_URL:http://localhost:8080}
+          predicates:
+            - Path=/api/tasks/**
+
+        - id:          user-service
+          uri:         ${USER_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/users/**
+
+server:
+  port: ${SERVER_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, gateway
+  endpoint:
+    gateway:
+      enabled: true
+
