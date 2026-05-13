@@ -7,6 +7,7 @@ import com.taskflow.task.controller.dto.UpdateTaskRequest;
 import com.taskflow.task.domain.TaskPriority;
 import com.taskflow.task.domain.exception.AssigneeNotFoundException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
+import com.taskflow.task.infrastructure.client.NotificationServiceClient;
 import com.taskflow.task.infrastructure.client.UserServiceClient;
 import com.taskflow.task.infrastructure.entity.TaskEntity;
 import com.taskflow.task.infrastructure.repository.TaskRepository;
@@ -27,6 +28,7 @@ public class TaskService {
     private final TaskRepository taskRepository;
     private final TaskMapper taskMapper;
     private final UserServiceClient userServiceClient;
+    private final NotificationServiceClient notificationClient;
 
     @Transactional
     public TaskResponse createTask(CreateTaskRequest request) {
@@ -46,6 +48,10 @@ public class TaskService {
         TaskEntity saved = taskRepository.save(taskMapper.toEntity(request));
 
         log.info("Created task with id= '{}' ", saved.getId());
+
+        notificationClient.notifyTaskCreated(
+                saved.getId(), saved.getTitle(), saved.getAssigneeId());
+
         return taskMapper.toResponse(saved);
     }
 
