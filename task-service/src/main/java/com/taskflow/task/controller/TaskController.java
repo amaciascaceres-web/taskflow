@@ -37,7 +37,7 @@ public class TaskController {
         return ResponseEntity.ok("task-service is alive");
     }
 
-    @PostMapping("/create")
+    @PostMapping
     public ResponseEntity<TaskResponse> create(
             @Valid @RequestBody CreateTaskRequest request) {
         TaskResponse response = taskService.createTask(request);

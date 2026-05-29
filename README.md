@@ -10,9 +10,27 @@ with Java and Spring Boot.
 Build a real-world system that evolves from a simple prototype to a production-ready
 software. Take technical decisions that are defensible in each stage.
 
+## Local setup
+
+### Prerequisites
+- PostgreSQL running on port 5433
+- User `taskflow` with password `taskflow`
+- Databases `taskflow` and `taskflow_users`
+
+### Create databases
+psql -U postgres -p 5433 -c "CREATE USER taskflow WITH PASSWORD 'taskflow';"
+psql -U taskflow -p 5433 -c "CREATE DATABASE taskflow;"
+psql -U taskflow -p 5433 -c "CREATE DATABASE taskflow_users;"
+
+### Run configurations
+Each service needs SPRING_PROFILES_ACTIVE=dev.
+All other variables have defaults in application-dev.yml.
+
 ## Current state
 
 Week 1 - Single service with Spring Boot and PostgreSQL.
+Week 2 - Split into microservices (task-service + user-service), inter-service communication via RestTemplate, Circuit Breaker with Resilience4j, and API Gateway with Spring Cloud Gateway.
+Week 3 (in progress) - notification-service with async fire-and-forget communication, Docker Compose for full stack, health checks, Redis caching, and database indexing.
 
 ## Architecture
 
