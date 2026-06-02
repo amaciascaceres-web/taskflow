@@ -197,3 +197,91 @@ Add Resilience4j when the following conditions are met:
 - user-service runs more than one replica
 - The system has observability in place (circuit breaker metrics)
 - Traffic volume justifies protecting Tomcat's thread pool
+
+## ADR-007: Fire and Forget for Notifications
+
+Context: notification-service is a secondary system. Its failure
+must not prevent the primary operation of creating tasks.
+
+Decision: HTTP fire-and-forget communication. Failures are logged
+as WARN but not propagated.
+
+Consequences:
++ Task creation does not depend on notification-service
+- Notifications may be lost if the service is down
++ Next step: message queue (RabbitMQ/Kafka) for durability
+
+Alternatives considered:
+- Synchronous with error propagation: discarded, couples operations
+  of different criticality levels
+- Kafka from the start: discarded due to premature complexity
+
+## ADR-008: Shared vs Per-Service Database
+
+Context: Locally we use the same PostgreSQL instance for all
+services for simplicity.
+
+Decision: Separate database per name (taskflow, taskflow_users)
+on the same local instance. In production, separate instances.
+
+Consequences:
++ Logical isolation between services
++ Allows migration to separate instances without changing code
+- Locally we share infrastructure (acceptable for development)
+
+## ADR-009: When This System Would Justify Kafka
+
+Context: We currently use synchronous HTTP between services.
+
+Decision: Introduce Kafka when all of the following conditions are met:
+- Notifications cannot be lost under any circumstances
+- Event volume exceeds 1000/second sustained
+- More than 2 consumers of the same event
+
+Consequences:
++ Guaranteed event durability
++ Complete temporal decoupling between services
+- Adds significant operational complexity
+- Requires managing offsets, consumer groups and rebalancing
+
+## ADR-010: When a Modular Monolith Would Be Sufficient
+
+Context: TaskFlow in its current state has 3 microservices
+with moderate load and a one-person team.
+
+Decision: Microservices are introduced here for deliberate
+learning purposes, not because load or team size demands it.
+
+Cases where a modular monolith would be a better fit:
+- Team smaller than 5 people
+- Domain not yet fully defined
+- Load under 100 sustained req/s
+- No need for independent deployment by capacity
+
+Consequences:
++ Honesty about technical decisions
++ Demonstrates judgment about when to apply each architecture
+
+## ADR-011: JWT Authentication Strategy
+
+Context: The system has multiple microservices. An authentication
+strategy is needed that does not require shared state between
+services.
+
+Decision: Stateless JWT. The API Gateway validates the token and
+internal services trust the propagated token without re-validating
+against a central database.
+
+Consequences:
++ No shared state: each service validates the signature locally
++ Horizontal scaling without coordination between instances
+- Tokens cannot be revoked before expiration without
+  a blacklist (additional complexity)
+- The payload travels in every request (minimal but real overhead)
+
+Alternatives considered:
+- Database sessions: discarded, requires shared state
+- Full OAuth2 with authorization server: reserved for
+  when the system has multiple clients or SSO
+
+Status: Partial implementation (Day 16). Complete in Week 5.

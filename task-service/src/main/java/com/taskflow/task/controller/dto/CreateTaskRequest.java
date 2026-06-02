@@ -6,7 +6,6 @@ import com.taskflow.task.domain.TaskPriority;
 import java.time.LocalDate;
 
 import jakarta.validation.constraints.FutureOrPresent;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -20,10 +19,10 @@ import lombok.Setter;
 public class CreateTaskRequest {
     @JsonProperty("title")
     @NotBlank(message = "Title is required")
-    @Size(max = 200, message = "Title must be between 3 and 255 characters")
+    @Size(max = 255, message = "Title must be between 3 and 255 characters")
     private String title;
 
-    @Max(value = 2000, message = "Description must be less than 255 characters")
+    @Size(max = 2000, message = "Description must be less than 20000 characters")
     @JsonProperty("description") private String description;
 
     @JsonProperty("assigneeId")  private Long assigneeId;
