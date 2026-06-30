@@ -4,6 +4,15 @@ spring:
       ddl-auto: none
     show-sql: false
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: when-authorized
+
 logging:
   level:
     root:          WARN

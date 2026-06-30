@@ -21,6 +21,19 @@ services:
     networks:
       - taskflow-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: taskflow-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - taskflow-network
+
   task-service:
     build:
       context: ../../task-service
@@ -33,10 +46,14 @@ services:
       DB_NAME:     taskflow
       DB_USER:     taskflow
       DB_PASSWORD: taskflow
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     ports:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - taskflow-network

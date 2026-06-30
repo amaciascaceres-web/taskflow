@@ -4,6 +4,7 @@ import com.taskflow.task.application.TaskService;
 import com.taskflow.task.controller.dto.CreateTaskRequest;
 import com.taskflow.task.controller.dto.TaskResponse;
 import com.taskflow.task.controller.dto.UpdateTaskRequest;
+import com.taskflow.task.domain.TaskStatus;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
@@ -51,8 +53,10 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getAll() {
-        return ResponseEntity.ok(taskService.getAll());
+    public ResponseEntity<List<TaskResponse>> getAll(
+            @RequestParam(required = false) String status) {
+        TaskStatus taskStatus = status != null ? TaskStatus.fromSlug(status) : null;
+        return ResponseEntity.ok(taskService.findAll(taskStatus));
     }
 
     @PutMapping("/{id}")

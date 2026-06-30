@@ -5,6 +5,7 @@ import com.taskflow.task.controller.dto.CreateTaskRequest;
 import com.taskflow.task.controller.dto.TaskResponse;
 import com.taskflow.task.controller.dto.UpdateTaskRequest;
 import com.taskflow.task.domain.TaskPriority;
+import com.taskflow.task.domain.TaskStatus;
 import com.taskflow.task.domain.exception.AssigneeNotFoundException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
 import com.taskflow.task.infrastructure.client.NotificationServiceClient;
@@ -12,6 +13,9 @@ import com.taskflow.task.infrastructure.client.UserServiceClient;
 import com.taskflow.task.infrastructure.entity.TaskEntity;
 import com.taskflow.task.infrastructure.repository.TaskRepository;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,16 +59,24 @@ public class TaskService {
         return taskMapper.toResponse(saved);
     }
 
+    @Cacheable(value = "tasks", key = "#id")
     @Transactional(readOnly = true)
     public TaskResponse getById(Long id) {
+        log.debug("Cache miss for task id={}, querying database", id);
         return taskMapper.toResponse(taskRepository.findById(id).orElseThrow(() -> new TaskNotFoundException(id)));
     }
 
+    @Cacheable(value = "tasks-by-status", key = "#status?.name() ?: 'ALL'")
     @Transactional(readOnly = true)
-    public List<TaskResponse> getAll() {
-        return taskRepository.findAll().stream().map(taskMapper::toResponse).toList();
+    public List<TaskResponse> findAll(TaskStatus status) {
+        log.debug("Cache miss for tasks list status={}", status);
+        return (status != null
+                ? taskRepository.findByStatus(status)
+                : taskRepository.findAll())
+                .stream().map(taskMapper::toResponse).toList();
     }
 
+    @CacheEvict(value = "tasks", key = "#id")
     @Transactional
     public TaskResponse update(Long id, UpdateTaskRequest request) {
         log.info("Updating task with id= '{}' ", id);
@@ -87,6 +99,10 @@ public class TaskService {
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "tasks", key = "#id"),
+            @CacheEvict(value = "tasks-by-status", allEntries = true)
+    })
     public void delete(Long id) {
         log.info("Deleting task id={}", id);
         TaskEntity task = taskRepository.findById(id)
