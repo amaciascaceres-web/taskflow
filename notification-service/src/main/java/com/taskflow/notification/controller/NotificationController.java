@@ -3,6 +3,7 @@ package com.taskflow.notification.controller;
 import com.taskflow.notification.application.NotificationService;
 import com.taskflow.notification.infrastructure.TaskCreatedEvent;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +23,7 @@ public class NotificationController {
 
     @PostMapping("/task-created")
     public ResponseEntity<Void> taskCreated(
-            @RequestBody TaskCreatedEvent event) {
+            @Valid @RequestBody TaskCreatedEvent event) {
         notificationService.handleTaskCreated(event);
         return ResponseEntity.ok().build();
     }
