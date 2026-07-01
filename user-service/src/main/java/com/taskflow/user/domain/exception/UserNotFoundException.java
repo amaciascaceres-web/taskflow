@@ -1,4 +1,4 @@
-package com.taskflow.user.domain;
+package com.taskflow.user.domain.exception;
 
 public class UserNotFoundException extends RuntimeException {
 

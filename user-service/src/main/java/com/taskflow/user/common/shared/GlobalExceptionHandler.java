@@ -1,8 +1,8 @@
 package com.taskflow.user.common.shared;
 
 
-import com.taskflow.user.domain.UserNotFoundException;
-import com.taskflow.user.exception.UserAlreadyExistsException;
+import com.taskflow.user.domain.exception.UserAlreadyExistsException;
+import com.taskflow.user.domain.exception.UserNotFoundException;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;

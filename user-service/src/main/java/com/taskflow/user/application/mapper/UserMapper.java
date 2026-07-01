@@ -13,6 +13,7 @@ public class UserMapper {
         return UserEntity.builder()
                 .name(request.getName())
                 .email(request.getEmail())
+                .team(request.getTeam())
                 .build();
     }
 
@@ -21,6 +22,7 @@ public class UserMapper {
                 .id(entity.getId())
                 .name(entity.getName())
                 .email(entity.getEmail())
+                .team(entity.getTeam())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
