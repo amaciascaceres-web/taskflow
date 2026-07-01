@@ -1,6 +1,7 @@
 package com.taskflow.task.domain;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Arrays;
 
@@ -12,6 +13,7 @@ public enum TaskPriority {
     MEDIUM("medium"),
     HIGH("high");
 
+    @JsonValue
     private final String slug;
 
     TaskPriority(String slug) {

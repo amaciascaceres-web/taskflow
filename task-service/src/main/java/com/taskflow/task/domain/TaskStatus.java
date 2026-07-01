@@ -1,6 +1,7 @@
 package com.taskflow.task.domain;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Arrays;
 
@@ -13,6 +14,7 @@ public enum TaskStatus {
     IN_PROGRESS("in-progress"),
     DONE("done");
 
+    @JsonValue
     private final String slug;
 
     TaskStatus(String slug) {
