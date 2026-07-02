@@ -1,0 +1,4 @@
+CREATE DATABASE taskflow;
+CREATE DATABASE taskflow_users;
+GRANT ALL PRIVILEGES ON DATABASE taskflow TO taskflow;
+GRANT ALL PRIVILEGES ON DATABASE taskflow_users TO taskflow;
