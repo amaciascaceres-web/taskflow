@@ -1,7 +1,6 @@
 package com.taskflow.task.config;
 
 import java.time.Duration;
-import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -30,12 +29,8 @@ public class RedisCacheConfig {
                 .registerModule(new JavaTimeModule())
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        JavaType listOfTasks = mapper.getTypeFactory()
-                .constructCollectionType(List.class, TaskResponse.class);
-
         return RedisCacheManager.builder(cf)
                 .withCacheConfiguration("tasks", configFor(mapper, TaskResponse.class))
-                .withCacheConfiguration("tasks-by-status", configFor(mapper, listOfTasks))
                 .build();
     }
 

@@ -16,6 +16,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,7 +30,14 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "tasks")
+@Table(
+    name = "tasks",
+    indexes = {
+        @Index(name = "idx_tasks_status",          columnList = "status"),
+        @Index(name = "idx_tasks_assignee_id",     columnList = "assignee_id"),
+        @Index(name = "idx_tasks_assignee_status", columnList = "assignee_id, status")
+    }
+)
 public class TaskEntity {
 
     @Id

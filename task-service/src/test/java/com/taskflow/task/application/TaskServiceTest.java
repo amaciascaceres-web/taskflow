@@ -25,9 +25,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -158,27 +164,58 @@ class TaskServiceTest {
     // ── findAll ───────────────────────────────────────────────────────────────
 
     @Test
-    void findAll_withStatus_delegatesToFindByStatus() {
-        when(taskRepository.findByStatus(TaskStatus.TODO)).thenReturn(List.of(savedEntity));
+    @SuppressWarnings("unchecked")
+    void findAll_allNullFilters_returnsPageOfAllTasks() {
+        when(taskRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(savedEntity)));
         when(taskMapper.toResponse(savedEntity)).thenReturn(expectedResponse);
 
-        List<TaskResponse> result = taskService.findAll(TaskStatus.TODO);
+        Page<TaskResponse> result = taskService.findAll(null, null, null, Pageable.unpaged());
 
-        assertThat(result).containsExactly(expectedResponse);
-        verify(taskRepository).findByStatus(TaskStatus.TODO);
-        verify(taskRepository, never()).findAll();
+        assertThat(result.getContent()).containsExactly(expectedResponse);
+        verify(taskRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 
     @Test
-    void findAll_nullStatus_delegatesToFindAll() {
-        when(taskRepository.findAll()).thenReturn(List.of(savedEntity));
+    @SuppressWarnings("unchecked")
+    void findAll_withMultipleStatuses_usesSpecification() {
+        when(taskRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(savedEntity)));
         when(taskMapper.toResponse(savedEntity)).thenReturn(expectedResponse);
 
-        List<TaskResponse> result = taskService.findAll(null);
+        Page<TaskResponse> result = taskService.findAll(
+                List.of(TaskStatus.TODO, TaskStatus.IN_PROGRESS), null, null, Pageable.unpaged());
 
-        assertThat(result).containsExactly(expectedResponse);
-        verify(taskRepository).findAll();
-        verify(taskRepository, never()).findByStatus(any());
+        assertThat(result.getContent()).containsExactly(expectedResponse);
+        verify(taskRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findAll_withAllFilters_usesSpecification() {
+        when(taskRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(savedEntity)));
+        when(taskMapper.toResponse(savedEntity)).thenReturn(expectedResponse);
+
+        Page<TaskResponse> result = taskService.findAll(
+                List.of(TaskStatus.TODO), List.of(1L), List.of(TaskPriority.HIGH), Pageable.unpaged());
+
+        assertThat(result.getContent()).containsExactly(expectedResponse);
+        verify(taskRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void findAll_withPageable_respectsPageSize() {
+        var pageable = org.springframework.data.domain.PageRequest.of(0, 5);
+        when(taskRepository.findAll(any(Specification.class), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(savedEntity), pageable, 1L));
+        when(taskMapper.toResponse(savedEntity)).thenReturn(expectedResponse);
+
+        Page<TaskResponse> result = taskService.findAll(null, null, null, pageable);
+
+        assertThat(result.getSize()).isEqualTo(5);
+        verify(taskRepository).findAll(any(Specification.class), eq(pageable));
     }
 
     // ── update ────────────────────────────────────────────────────────────────
@@ -231,7 +268,7 @@ class TaskServiceTest {
         assertThatThrownBy(() -> taskService.delete(99L))
                 .isInstanceOf(TaskNotFoundException.class);
 
-        verify(taskRepository, never()).delete(any());
+        verify(taskRepository, never()).delete(any(TaskEntity.class));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────────

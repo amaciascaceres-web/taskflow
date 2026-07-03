@@ -101,18 +101,121 @@ class TaskE2ETest {
         assertThat(gone.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
-    // ── status filter ─────────────────────────────────────────────────────────
+    // ── filtering ─────────────────────────────────────────────────────────────
 
     @Test
+    @SuppressWarnings("unchecked")
     void getAll_statusFilter_returnsOnlyMatchingTasks() {
         restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithStatus("todo")), TaskResponse.class);
         restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithStatus("in-progress")), TaskResponse.class);
 
-        ResponseEntity<List> todos = restTemplate.getForEntity("/api/tasks?status=todo", List.class);
+        var result = restTemplate.getForEntity("/api/tasks?status=todo", java.util.Map.class);
 
-        assertThat(todos.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(todos.getBody()).isNotEmpty()
-                .allMatch(t -> ((java.util.LinkedHashMap<?, ?>) t).get("status").toString().equals("todo"));
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<java.util.LinkedHashMap<?, ?>> content = (List<java.util.LinkedHashMap<?, ?>>) result.getBody().get("content");
+        assertThat(content).isNotEmpty()
+                .allMatch(t -> "todo".equals(t.get("status")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_multiStatusFilter_returnsTasksMatchingAnyStatus() {
+        restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithStatus("todo")), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithStatus("in-progress")), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithStatus("done")), TaskResponse.class);
+
+        var result = restTemplate.getForEntity("/api/tasks?status=todo&status=in-progress", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<java.util.LinkedHashMap<?, ?>> content = (List<java.util.LinkedHashMap<?, ?>>) result.getBody().get("content");
+        assertThat(content).isNotEmpty()
+                .allMatch(t -> List.of("todo", "in-progress").contains(t.get("status")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_filterByAssigneeId_returnsOnlyTasksForThatAssignee() {
+        userServiceMock.stubFor(get(urlEqualTo("/api/users/1"))
+                .willReturn(ok().withBody("{}").withHeader("Content-Type", "application/json")));
+
+        CreateTaskRequest withAssignee = validCreateRequest();
+        withAssignee.setAssigneeId(1L);
+        restTemplate.postForEntity("/api/tasks", httpEntity(withAssignee), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(validCreateRequest()), TaskResponse.class);
+
+        var result = restTemplate.getForEntity("/api/tasks?assigneeId=1", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<java.util.LinkedHashMap<?, ?>> content = (List<java.util.LinkedHashMap<?, ?>>) result.getBody().get("content");
+        assertThat(content).isNotEmpty()
+                .allMatch(t -> Integer.valueOf(1).equals(t.get("assigneeId")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_filterByAssigneeIdAndStatus_returnsCombinedFilter() {
+        userServiceMock.stubFor(get(urlEqualTo("/api/users/1"))
+                .willReturn(ok().withBody("{}").withHeader("Content-Type", "application/json")));
+
+        CreateTaskRequest todoAssignee1 = validCreateRequest();
+        todoAssignee1.setAssigneeId(1L);
+        todoAssignee1.setStatus("todo");
+
+        CreateTaskRequest doneAssignee1 = validCreateRequest();
+        doneAssignee1.setAssigneeId(1L);
+        doneAssignee1.setStatus("done");
+
+        restTemplate.postForEntity("/api/tasks", httpEntity(todoAssignee1), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(doneAssignee1), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(validCreateRequest()), TaskResponse.class);
+
+        var result = restTemplate.getForEntity("/api/tasks?assigneeId=1&status=todo", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<java.util.LinkedHashMap<?, ?>> content = (List<java.util.LinkedHashMap<?, ?>>) result.getBody().get("content");
+        assertThat(content).isNotEmpty()
+                .allMatch(t -> "todo".equals(t.get("status")) && Integer.valueOf(1).equals(t.get("assigneeId")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_filterByPriority_returnsOnlyMatchingPriority() {
+        restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithPriority(TaskPriority.HIGH)), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(createRequestWithPriority(TaskPriority.LOW)), TaskResponse.class);
+
+        var result = restTemplate.getForEntity("/api/tasks?priority=high", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<java.util.LinkedHashMap<?, ?>> content = (List<java.util.LinkedHashMap<?, ?>>) result.getBody().get("content");
+        assertThat(content).isNotEmpty()
+                .allMatch(t -> "high".equals(t.get("priority")));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_unknownAssignee_returnsEmptyContent() {
+        var result = restTemplate.getForEntity("/api/tasks?assigneeId=99999", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        List<?> content = (List<?>) result.getBody().get("content");
+        assertThat(content).isEmpty();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getAll_withPageSizeParam_returnsCorrectPageSize() {
+        restTemplate.postForEntity("/api/tasks", httpEntity(validCreateRequest()), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(validCreateRequest()), TaskResponse.class);
+        restTemplate.postForEntity("/api/tasks", httpEntity(validCreateRequest()), TaskResponse.class);
+
+        var result = restTemplate.getForEntity("/api/tasks?page=0&size=2", java.util.Map.class);
+
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(result.getBody().get("size")).isEqualTo(2);
+        assertThat(result.getBody().get("page")).isEqualTo(0);
+        List<?> content = (List<?>) result.getBody().get("content");
+        assertThat(content).hasSize(2);
+        assertThat((Integer) result.getBody().get("totalPages")).isGreaterThanOrEqualTo(1);
     }
 
     // ── assignee validation ───────────────────────────────────────────────────
@@ -191,6 +294,14 @@ class TaskE2ETest {
         req.setTitle("Task " + status);
         req.setPriority(TaskPriority.LOW);
         req.setStatus(status);
+        return req;
+    }
+
+    private CreateTaskRequest createRequestWithPriority(TaskPriority priority) {
+        CreateTaskRequest req = new CreateTaskRequest();
+        req.setTitle("Task " + priority.getSlug());
+        req.setPriority(priority);
+        req.setStatus("todo");
         return req;
     }
 

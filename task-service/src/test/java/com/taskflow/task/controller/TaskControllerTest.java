@@ -24,8 +24,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -116,17 +120,84 @@ class TaskControllerTest {
     // ── GET /api/tasks ────────────────────────────────────────────────────────
 
     @Test
-    void getAll_withValidStatusSlug_returns200() throws Exception {
-        when(taskService.findAll(TaskStatus.TODO)).thenReturn(List.of(TASK_RESPONSE));
+    void getAll_noFilters_returns200WithPagedResponse() throws Exception {
+        when(taskService.findAll(isNull(), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
+
+        mockMvc.perform(get("/api/tasks"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.page").value(0));
+    }
+
+    @Test
+    void getAll_withSingleStatusSlug_passesStatusListToService() throws Exception {
+        when(taskService.findAll(eq(List.of(TaskStatus.TODO)), isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
 
         mockMvc.perform(get("/api/tasks").param("status", "todo"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$.content[0].id").value(1));
+    }
+
+    @Test
+    void getAll_withMultipleStatusSlugs_passesStatusListToService() throws Exception {
+        when(taskService.findAll(
+                eq(List.of(TaskStatus.TODO, TaskStatus.IN_PROGRESS)),
+                isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
+
+        mockMvc.perform(get("/api/tasks").param("status", "todo").param("status", "in-progress"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1));
+    }
+
+    @Test
+    void getAll_withAssigneeIds_passesAssigneeIdListToService() throws Exception {
+        when(taskService.findAll(isNull(), eq(List.of(1L, 2L)), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
+
+        mockMvc.perform(get("/api/tasks").param("assigneeId", "1").param("assigneeId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1));
+    }
+
+    @Test
+    void getAll_withPrioritySlugs_passesPriorityListToService() throws Exception {
+        when(taskService.findAll(isNull(), isNull(), eq(List.of(TaskPriority.HIGH, TaskPriority.MEDIUM)), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
+
+        mockMvc.perform(get("/api/tasks").param("priority", "high").param("priority", "medium"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1));
+    }
+
+    @Test
+    void getAll_withAllFilters_passesAllListsToService() throws Exception {
+        when(taskService.findAll(
+                eq(List.of(TaskStatus.TODO)), eq(List.of(1L)), eq(List.of(TaskPriority.HIGH)),
+                any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(TASK_RESPONSE)));
+
+        mockMvc.perform(get("/api/tasks")
+                        .param("status", "todo")
+                        .param("assigneeId", "1")
+                        .param("priority", "high"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(1));
     }
 
     @Test
     void getAll_withInvalidStatusSlug_returns500WithInternalErrorCode() throws Exception {
         mockMvc.perform(get("/api/tasks").param("status", "not-a-status"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"));
+    }
+
+    @Test
+    void getAll_withInvalidPrioritySlug_returns500WithInternalErrorCode() throws Exception {
+        mockMvc.perform(get("/api/tasks").param("priority", "not-a-priority"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"));
     }

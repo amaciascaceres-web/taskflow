@@ -12,10 +12,13 @@ import com.taskflow.task.infrastructure.client.NotificationServiceClient;
 import com.taskflow.task.infrastructure.client.UserServiceClient;
 import com.taskflow.task.infrastructure.entity.TaskEntity;
 import com.taskflow.task.infrastructure.repository.TaskRepository;
+import com.taskflow.task.infrastructure.repository.TaskSpecification;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,14 +69,15 @@ public class TaskService {
         return taskMapper.toResponse(taskRepository.findById(id).orElseThrow(() -> new TaskNotFoundException(id)));
     }
 
-    @Cacheable(value = "tasks-by-status", key = "#status?.name() ?: 'ALL'")
     @Transactional(readOnly = true)
-    public List<TaskResponse> findAll(TaskStatus status) {
-        log.debug("Cache miss for tasks list status={}", status);
-        return (status != null
-                ? taskRepository.findByStatus(status)
-                : taskRepository.findAll())
-                .stream().map(taskMapper::toResponse).toList();
+    public Page<TaskResponse> findAll(
+            List<TaskStatus> statuses, List<Long> assigneeIds,
+            List<TaskPriority> priorities, Pageable pageable) {
+        Specification<TaskEntity> spec = Specification
+                .where(TaskSpecification.hasStatusIn(statuses))
+                .and(TaskSpecification.hasAssigneeIdIn(assigneeIds))
+                .and(TaskSpecification.hasPriorityIn(priorities));
+        return taskRepository.findAll(spec, pageable).map(taskMapper::toResponse);
     }
 
     @CacheEvict(value = "tasks", key = "#id")
@@ -98,11 +102,8 @@ public class TaskService {
         return taskMapper.toResponse(updated);
     }
 
+    @CacheEvict(value = "tasks", key = "#id")
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "tasks", key = "#id"),
-            @CacheEvict(value = "tasks-by-status", allEntries = true)
-    })
     public void delete(Long id) {
         log.info("Deleting task id={}", id);
         TaskEntity task = taskRepository.findById(id)

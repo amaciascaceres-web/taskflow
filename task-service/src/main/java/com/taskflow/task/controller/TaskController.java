@@ -2,11 +2,16 @@ package com.taskflow.task.controller;
 
 import com.taskflow.task.application.TaskService;
 import com.taskflow.task.controller.dto.CreateTaskRequest;
+import com.taskflow.task.controller.dto.PagedResponse;
 import com.taskflow.task.controller.dto.TaskResponse;
 import com.taskflow.task.controller.dto.UpdateTaskRequest;
+import com.taskflow.task.domain.TaskPriority;
 import com.taskflow.task.domain.TaskStatus;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -53,10 +58,16 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getAll(
-            @RequestParam(required = false) String status) {
-        TaskStatus taskStatus = status != null ? TaskStatus.fromSlug(status) : null;
-        return ResponseEntity.ok(taskService.findAll(taskStatus));
+    public ResponseEntity<PagedResponse<TaskResponse>> getAll(
+            @RequestParam(required = false) List<String> status,
+            @RequestParam(required = false) List<Long> assigneeId,
+            @RequestParam(required = false) List<String> priority,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        List<TaskStatus> statuses = status != null
+                ? status.stream().map(TaskStatus::fromSlug).toList() : null;
+        List<TaskPriority> priorities = priority != null
+                ? priority.stream().map(TaskPriority::fromSlug).toList() : null;
+        return ResponseEntity.ok(PagedResponse.from(taskService.findAll(statuses, assigneeId, priorities, pageable)));
     }
 
     @PutMapping("/{id}")

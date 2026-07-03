@@ -88,18 +88,21 @@ com.taskflow.<service>
 
 ### Inter-service communication
 
-- **task-service → user-service:** Synchronous `RestTemplate` call to validate `assigneeId` on task creation. 3000ms timeout. Returns 503 if user-service is unreachable, 404 if user not found. No circuit breaker yet (see ADR-006).
-- **task-service → notification-service:** Fire-and-forget HTTP POST. Failures are logged as WARN and never propagated to the caller (see ADR-007).
+- **task-service → user-service:** Synchronous `RestTemplate` call to validate `assigneeId` on task creation. 3000ms timeout. Returns 503 if user-service is unreachable, 404 if user not found. No circuit breaker yet (see ADR-007).
+- **task-service → notification-service:** Fire-and-forget HTTP POST. Failures are logged as WARN and never propagated to the caller (see ADR-008).
 
 ### Caching (task-service)
 
-Redis cache with two cache names:
-- `tasks` — keyed by task `id`, evicted on update/delete
-- `tasks-by-status` — keyed by status slug, all entries evicted on delete
+Redis cache — single cache name:
+- `tasks` — keyed by task `id`, evicted on update/delete via `@CacheEvict`
+
+List queries (`GET /api/tasks` with filters and pagination) are not cached: with
+`status × assigneeId × priority` combinations the key space explodes, and any write
+would need `allEntries=true` eviction defeating the purpose.
 
 `RedisCacheConfig` uses a custom `ObjectMapper` with `DefaultTyping.NON_FINAL` and type validation restricted to `com.taskflow.task` to support polymorphic deserialization of cached `TaskResponse` records.
 
-### Authentication (partial — ADR-011)
+### Authentication (partial — ADR-012)
 
 Stateless JWT strategy. Spring Security is wired in `task-service` but currently permits all requests (`anyRequest().permitAll()`). Week 5 will change this to `.authenticated()` and add JWT filter chain validation at the api-gateway.
 

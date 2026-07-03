@@ -164,7 +164,7 @@ versioned migrations and set `ddl-auto: none`.
 - Flyway from day one: discarded to keep focus on infrastructure
   topics (Docker, AWS, Kubernetes) rather than migration tooling
 
-## ADR-006: Resilience strategy for user-service calls
+## ADR-007: Resilience strategy for user-service calls
 
 **Context:**
 task-service calls user-service synchronously to validate
@@ -198,7 +198,7 @@ Add Resilience4j when the following conditions are met:
 - The system has observability in place (circuit breaker metrics)
 - Traffic volume justifies protecting Tomcat's thread pool
 
-## ADR-007: Fire and Forget for Notifications
+## ADR-008: Fire and Forget for Notifications
 
 Context: notification-service is a secondary system. Its failure
 must not prevent the primary operation of creating tasks.
@@ -216,7 +216,7 @@ Alternatives considered:
   of different criticality levels
 - Kafka from the start: discarded due to premature complexity
 
-## ADR-008: Shared vs Per-Service Database
+## ADR-009: Shared vs Per-Service Database
 
 Context: Locally we use the same PostgreSQL instance for all
 services for simplicity.
@@ -229,7 +229,7 @@ Consequences:
 + Allows migration to separate instances without changing code
 - Locally we share infrastructure (acceptable for development)
 
-## ADR-009: When This System Would Justify Kafka
+## ADR-010: When This System Would Justify Kafka
 
 Context: We currently use synchronous HTTP between services.
 
@@ -244,7 +244,7 @@ Consequences:
 - Adds significant operational complexity
 - Requires managing offsets, consumer groups and rebalancing
 
-## ADR-010: When a Modular Monolith Would Be Sufficient
+## ADR-011: When a Modular Monolith Would Be Sufficient
 
 Context: TaskFlow in its current state has 3 microservices
 with moderate load and a one-person team.
@@ -262,7 +262,7 @@ Consequences:
 + Honesty about technical decisions
 + Demonstrates judgment about when to apply each architecture
 
-## ADR-011: JWT Authentication Strategy
+## ADR-012: JWT Authentication Strategy
 
 Context: The system has multiple microservices. An authentication
 strategy is needed that does not require shared state between
@@ -285,3 +285,45 @@ Alternatives considered:
   when the system has multiple clients or SSO
 
 Status: Partial implementation (Day 16). Complete in Week 5.
+
+---
+
+## ADR-013: Database indexes for task query filters
+
+**Date:** 2026-07-02
+**Status:** Accepted
+
+**Context:**
+`GET /api/tasks` now supports dynamic filtering by `status`, `assigneeId`, and `priority`,
+resolved via JPA Specifications. Without indexes, any filtered query requires a full table
+scan. As the tasks table grows (completed sprints accumulate), this becomes a bottleneck.
+The most common real-world query pattern is "find my open tasks" — filtered by both
+`assigneeId` and `status` simultaneously.
+
+**Decision:**
+Add three indexes to the `tasks` table via `@Index` on `TaskEntity`:
+
+- `idx_tasks_status` on `(status)` — single-column filter by status
+- `idx_tasks_assignee_id` on `(assignee_id)` — single-column filter by assignee
+- `idx_tasks_assignee_status` on `(assignee_id, status)` — composite for the
+  "my open tasks" query pattern; the leading column (`assignee_id`) also serves
+  single-column assignee lookups, making `idx_tasks_assignee_id` technically
+  redundant but kept for clarity and for queries that filter on assignee alone
+  without a status constraint (planner may choose either index depending on selectivity)
+
+`priority` is intentionally not indexed: it has only 3 values (low/medium/high) so
+cardinality is too low for an index to help — a full scan with a filter is faster.
+
+**Consequences:**
++ Filtered queries on status, assigneeId, or both avoid full table scans
++ No additional application code — indexes are managed by Hibernate `ddl-auto: update`
+  in dev; Flyway migration will be added when moving to production
+- Small write overhead on every INSERT and UPDATE to the tasks table
+- Adds a composite index for the dominant query pattern; re-evaluate if query
+  patterns shift significantly
+
+**Alternatives considered:**
+- Index on `priority`: discarded due to low cardinality (3 values); sequential scan + filter is faster
+- Composite `(status, assignee_id)`: leading column reversed; less useful since
+  status-only queries are less selective than assignee-only queries in practice
+- No indexes: only acceptable while the table is small (early development)

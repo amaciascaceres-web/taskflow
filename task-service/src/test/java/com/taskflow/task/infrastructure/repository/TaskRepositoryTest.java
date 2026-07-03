@@ -16,6 +16,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.List;
 
+import org.springframework.data.jpa.domain.Specification;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase.Replace.NONE;
 
@@ -75,11 +77,104 @@ class TaskRepositoryTest {
         assertThat(taskRepository.findByStatus(TaskStatus.IN_PROGRESS)).hasSize(1);
     }
 
+    // ── Specification-based filtering ─────────────────────────────────────────
+
+    @Test
+    void findAll_withAssigneeIdSpec_returnsOnlyTasksForThatAssignee() {
+        taskRepository.save(buildTaskForAssignee("Task A", TaskStatus.TODO, TaskPriority.HIGH, 1L));
+        taskRepository.save(buildTaskForAssignee("Task B", TaskStatus.TODO, TaskPriority.LOW, 2L));
+
+        List<TaskEntity> result = taskRepository.findAll(TaskSpecification.hasAssigneeIdIn(List.of(1L)));
+
+        assertThat(result).hasSize(1)
+                .allMatch(t -> Long.valueOf(1L).equals(t.getAssigneeId()));
+    }
+
+    @Test
+    void findAll_withMultipleAssigneeIds_returnsTasksForAllAssignees() {
+        taskRepository.save(buildTaskForAssignee("Task A", TaskStatus.TODO, TaskPriority.HIGH, 1L));
+        taskRepository.save(buildTaskForAssignee("Task B", TaskStatus.TODO, TaskPriority.LOW,  2L));
+        taskRepository.save(buildTaskForAssignee("Task C", TaskStatus.TODO, TaskPriority.HIGH, 3L));
+
+        List<TaskEntity> result = taskRepository.findAll(TaskSpecification.hasAssigneeIdIn(List.of(1L, 2L)));
+
+        assertThat(result).hasSize(2)
+                .allMatch(t -> List.of(1L, 2L).contains(t.getAssigneeId()));
+    }
+
+    @Test
+    void findAll_withStatusAndAssigneeIdSpec_returnsCombinedFilter() {
+        taskRepository.save(buildTaskForAssignee("Task A", TaskStatus.TODO,        TaskPriority.HIGH, 1L));
+        taskRepository.save(buildTaskForAssignee("Task B", TaskStatus.IN_PROGRESS, TaskPriority.LOW,  1L));
+        taskRepository.save(buildTaskForAssignee("Task C", TaskStatus.TODO,        TaskPriority.HIGH, 2L));
+
+        Specification<TaskEntity> spec = Specification
+                .where(TaskSpecification.hasStatusIn(List.of(TaskStatus.TODO)))
+                .and(TaskSpecification.hasAssigneeIdIn(List.of(1L)));
+
+        List<TaskEntity> result = taskRepository.findAll(spec);
+
+        assertThat(result).hasSize(1)
+                .allMatch(t -> t.getStatus() == TaskStatus.TODO && Long.valueOf(1L).equals(t.getAssigneeId()));
+    }
+
+    @Test
+    void findAll_withMultipleStatuses_returnsTasksMatchingAnyStatus() {
+        taskRepository.save(buildTask("Todo task",        TaskStatus.TODO,        TaskPriority.HIGH));
+        taskRepository.save(buildTask("In-progress task", TaskStatus.IN_PROGRESS, TaskPriority.LOW));
+        taskRepository.save(buildTask("Done task",        TaskStatus.DONE,        TaskPriority.LOW));
+
+        List<TaskEntity> result = taskRepository.findAll(
+                TaskSpecification.hasStatusIn(List.of(TaskStatus.TODO, TaskStatus.IN_PROGRESS)));
+
+        assertThat(result).hasSize(2)
+                .allMatch(t -> t.getStatus() == TaskStatus.TODO || t.getStatus() == TaskStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void findAll_withPrioritySpec_returnsOnlyMatchingPriority() {
+        taskRepository.save(buildTask("High task",   TaskStatus.TODO, TaskPriority.HIGH));
+        taskRepository.save(buildTask("Low task",    TaskStatus.TODO, TaskPriority.LOW));
+        taskRepository.save(buildTask("Medium task", TaskStatus.TODO, TaskPriority.MEDIUM));
+
+        List<TaskEntity> result = taskRepository.findAll(
+                TaskSpecification.hasPriorityIn(List.of(TaskPriority.HIGH)));
+
+        assertThat(result).hasSize(1)
+                .allMatch(t -> t.getPriority() == TaskPriority.HIGH);
+    }
+
+    @Test
+    void findAll_withAllNullFilters_returnsAllTasks() {
+        taskRepository.save(buildTask("Task A", TaskStatus.TODO,        TaskPriority.HIGH));
+        taskRepository.save(buildTask("Task B", TaskStatus.IN_PROGRESS, TaskPriority.LOW));
+
+        Specification<TaskEntity> spec = Specification
+                .where(TaskSpecification.hasStatusIn(null))
+                .and(TaskSpecification.hasAssigneeIdIn(null))
+                .and(TaskSpecification.hasPriorityIn(null));
+
+        List<TaskEntity> result = taskRepository.findAll(spec);
+
+        assertThat(result).hasSize(2);
+    }
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+
     private TaskEntity buildTask(String title, TaskStatus status, TaskPriority priority) {
         return TaskEntity.builder()
                 .title(title)
                 .status(status)
                 .priority(priority)
+                .build();
+    }
+
+    private TaskEntity buildTaskForAssignee(String title, TaskStatus status, TaskPriority priority, Long assigneeId) {
+        return TaskEntity.builder()
+                .title(title)
+                .status(status)
+                .priority(priority)
+                .assigneeId(assigneeId)
                 .build();
     }
 }
