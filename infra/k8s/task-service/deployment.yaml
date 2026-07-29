@@ -24,7 +24,7 @@ spec:
             - name: SPRING_PROFILES_ACTIVE
               value: "dev"
             - name: DB_HOST
-              value: "host.minikube.internal"
+              value: "postgres"
             - name: DB_PORT
               value: "5433"
             - name: DB_NAME
