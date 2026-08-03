@@ -327,3 +327,51 @@ cardinality is too low for an index to help — a full scan with a filter is fas
 - Composite `(status, assignee_id)`: leading column reversed; less useful since
   status-only queries are less selective than assignee-only queries in practice
 - No indexes: only acceptable while the table is small (early development)
+
+---
+
+## ADR-014: EKS migration documented but not executed
+
+**Date:** 2026-08-03
+**Status:** Accepted
+
+**Context:**
+TaskFlow currently runs on minikube locally, with the AWS deployment strategy
+(`docs/aws-strategy.md`) already covering EC2 + Docker Compose (Phase 1) and
+outlining ECS Fargate (Phase 2) and EKS (Phase 3) as future steps. EKS is
+worth understanding for this project's learning goals, but its control plane
+has a fixed cost of ~$0.10/hour (~$72/month) regardless of whether any
+workload is running — unlike ECS Fargate, which costs nothing with no active
+tasks. There is no production load, multi-cloud requirement, or team size
+that justifies that cost today.
+
+**Decision:**
+Document the full migration from minikube to EKS with real, commented
+commands (`docs/eks-migration.md`), but do not provision an EKS cluster
+against a real AWS account. The Kubernetes manifests already written for
+minikube (`infra/k8s/`) are kept as the single source of truth: they are
+portable as-is, so no EKS-specific fork of them is maintained.
+
+**Consequences:**
++ No recurring AWS cost for a cluster that would sit idle between
+  learning sessions
++ The manifests stay minikube-first, with EKS-specific changes (image
+  registry, gateway Service type) called out explicitly rather than
+  duplicated into a parallel set of files
++ The migration can be executed on demand in a single session
+  (`eksctl create cluster` → validate → `eksctl delete cluster`) if it
+  ever needs to be demonstrated against a real account
+- The documented steps are unverified against a live EKS cluster; some
+  details (IRSA setup, ALB controller behavior) may need adjustment
+  when actually executed
+- Revisit this decision if the project reaches the conditions already
+  listed in `docs/aws-strategy.md` Phase 3 (10+ microservices,
+  multi-cloud need, or a team already operating Kubernetes elsewhere)
+
+**Alternatives considered:**
+- Provision a real EKS cluster temporarily to validate the steps: rejected
+  for a learning project — the cost isn't justified just to confirm
+  commands that are well-documented AWS behavior
+- Skip EKS entirely and stop at ECS Fargate: rejected — understanding the
+  EKS migration path is a stated learning goal, so it's documented even
+  though not executed
