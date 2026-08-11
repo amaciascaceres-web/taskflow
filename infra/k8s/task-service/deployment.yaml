@@ -5,7 +5,7 @@ metadata:
   labels:
     app: task-service
 spec:
-  replicas: 1
+  replicas: 3
   selector:
     matchLabels:
       app: task-service
@@ -20,23 +20,18 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: "dev"
-            - name: DB_HOST
-              value: "postgres"
-            - name: DB_PORT
-              value: "5433"
-            - name: DB_NAME
-              value: "taskflow"
-            - name: DB_USER
-              value: "taskflow"
-            - name: DB_PASSWORD
-              value: "taskflow"
-            - name: REDIS_HOST
-              value: "host.minikube.internal"
-            - name: REDIS_PORT
-              value: "6379"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          envFrom:
+            - configMapRef:
+                name: task-service-config
+            - secretRef:
+                name: task-service-secrets
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness

@@ -74,7 +74,7 @@ images must come from a registry the nodes can reach.
 ## Step 4: Apply the manifests (unchanged)
 
 ```bash
-kubectl apply -f infra/k8s/
+kubectl apply -R -f infra/k8s/
 ```
 
 Exactly the same command as in minikube. ConfigMaps, Secrets,
@@ -137,7 +137,7 @@ account.
 **Doesn't change:**
 - The YAML manifests (Deployment, Service, ConfigMap, Secret) are
   identical except for the gateway's `Service` type.
-- The `kubectl apply -f infra/k8s/` command is the same.
+- The `kubectl apply -R -f infra/k8s/` command is the same.
 - The application structure, gateway routes, and each microservice's
   logic are untouched.
 

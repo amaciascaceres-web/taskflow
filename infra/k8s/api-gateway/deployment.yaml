@@ -20,10 +20,13 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8090
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: "dev"
-            - name: TASK_SERVICE_URL
-              value: "http://task-service:8080"
-            - name: USER_SERVICE_URL
-              value: "http://user-service:8081"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "300m"
+          envFrom:
+            - configMapRef:
+                name: api-gateway-config

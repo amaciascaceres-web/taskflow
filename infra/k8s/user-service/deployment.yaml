@@ -20,16 +20,15 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
-          env:
-            - name: SPRING_PROFILES_ACTIVE
-              value: "dev"
-            - name: DB_HOST
-              value: "postgres"
-            - name: DB_PORT
-              value: "5433"
-            - name: DB_NAME
-              value: "taskflow_users"
-            - name: DB_USER
-              value: "taskflow"
-            - name: DB_PASSWORD
-              value: "taskflow"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "150m"
+            limits:
+              memory: "512Mi"
+              cpu: "300m"
+          envFrom:
+            - configMapRef:
+                name: user-service-config
+            - secretRef:
+                name: user-service-secrets

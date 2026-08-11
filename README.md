@@ -203,6 +203,15 @@ Split into multiple independent services by business capability:
 
 ---
 
+## Kubernetes (minikube)
+
+Manifests live in [infra/k8s/](infra/k8s/). First-time setup requires
+creating `secret.yaml` files from the checked-in `secret.example.yaml`
+templates — see [infra/k8s/README.md](infra/k8s/README.md) for the
+ConfigMap/Secret split and setup steps.
+
+---
+
 ## Architecture decisions
 
 Significant technical decisions are documented in [docs/architecture-decisions.md](docs/architecture-decisions.md).

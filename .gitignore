@@ -14,3 +14,6 @@ out/
 
 # Logs
 *.log
+
+# Kubernetes secrets (never commit real credentials — see infra/k8s/README.md)
+infra/k8s/**/secret.yaml

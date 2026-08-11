@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: task-service-config
+data:
+  SPRING_PROFILES_ACTIVE: "dev"
+  DB_HOST: "postgres"
+  DB_PORT: "5433"
+  DB_NAME: "taskflow"
+  REDIS_HOST: "host.minikube.internal"
+  REDIS_PORT: "6379"
