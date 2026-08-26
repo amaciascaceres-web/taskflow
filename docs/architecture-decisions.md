@@ -275,8 +275,11 @@ against a central database.
 Consequences:
 + No shared state: each service validates the signature locally
 + Horizontal scaling without coordination between instances
-- Tokens cannot be revoked before expiration without
-  a blacklist (additional complexity)
+- Tokens cannot be revoked before expiration: validation is purely
+  signature + `exp` claim, with no server-side check, so a token
+  remains valid for its full lifetime regardless of anything that
+  happens afterward. Shortening that window requires either a
+  blacklist (reintroduces shared state) or short-lived access tokens
 - The payload travels in every request (minimal but real overhead)
 
 Alternatives considered:
@@ -284,7 +287,17 @@ Alternatives considered:
 - Full OAuth2 with authorization server: reserved for
   when the system has multiple clients or SSO
 
-Status: Partial implementation (Day 16). Complete in Week 5.
+Future considerations:
+- Short-lived access token + refresh token: would shrink the exposure
+  window of a leaked token (minutes instead of `jwt.expiration-ms`,
+  currently 24h) and reintroduce revocability — but only on the
+  refresh path, not on every request. Not implemented — the system
+  has no session-invalidating action yet (no logout endpoint) for a
+  revocation list to react to, so there's nothing to revoke against
+  today.
+
+Status: Partial implementation (Day 16). Trust boundary for internal
+services refined in ADR-015.
 
 ---
 
@@ -375,3 +388,64 @@ portable as-is, so no EKS-specific fork of them is maintained.
 - Skip EKS entirely and stop at ECS Fargate: rejected — understanding the
   EKS migration path is a stated learning goal, so it's documented even
   though not executed
+
+---
+
+## ADR-015: Trust boundary for propagated identity headers
+
+**Date:** 2026-08-18
+**Status:** Accepted
+
+**Context:**
+The first JWT pass (Day 31 practice) put full signature validation
+*and* a `UserDetailsService.loadUserByUsername()` database lookup inside
+`JwtAuthFilter` in task-service. That contradicts ADR-012, which already
+states the API Gateway validates the token and internal services trust
+it without re-validating against a central database. Re-deriving the
+user from a DB row on every request is closer to re-authentication than
+to trusting a signed token, and it would couple task-service to
+user-service's schema — something ADR-009 (per-service databases)
+already rules out.
+
+**Decision:**
+JWT signature validation happens exactly once, in api-gateway. On a
+valid token, the gateway injects trusted headers (`X-User-Email`,
+`X-User-Role`) into the request before forwarding it downstream, after
+stripping any `X-User-*` headers the client sent itself. Internal
+services (task-service, user-service, notification-service) never see
+the raw token or the signing key; they read the trusted headers and
+build a `SecurityContext` directly from them — no signature check, no
+database lookup.
+
+This is only safe because internal services are not reachable from
+outside the cluster: no Ingress, NodePort, or LoadBalancer Service
+exposes task-service, user-service, or notification-service directly,
+so a client cannot hit them and forge `X-User-Role: ADMIN` without
+going through the gateway. If that ever changes (e.g. a service gets
+its own public endpoint), this trust boundary breaks and that service
+would need to validate the JWT itself again.
+
+**Consequences:**
++ Matches ADR-012 as originally written: one validation point, no
+  per-service DB coupling for authentication
++ Removes `jjwt-*` and the `UserDetailsService` dependency from
+  task-service entirely — the JWT signing key never needs to exist
+  outside api-gateway
+- Internal services fully trust the gateway's headers; a compromised or
+  misconfigured internal network (no NetworkPolicy, a debug port opened
+  to the cluster's Pod network) becomes an authentication bypass, not
+  just a data leak
+- Headers must be stripped and re-set on every hop, not just added —
+  any gateway filter that forgets to strip inbound `X-User-*` first
+  reopens the spoofing path
+
+**Alternatives considered:**
+- Keep signature validation in every internal service (original ADR-012
+  intent, "each service validates the signature locally"): rejected for
+  now — it's more defense-in-depth, but duplicates the signing key
+  across every service's config/secret, and this project already
+  documents the DB-lookup mistake as the more urgent issue to fix
+- Re-validate the DB user on every request in task-service: rejected —
+  this is what the Day 31 practice code did; it defeats the stateless
+  benefit JWT is supposed to provide and couples services via a shared
+  schema

@@ -18,9 +18,11 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.http.*;
 import org.springframework.test.context.TestPropertySource;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.util.List;
 
@@ -34,14 +36,18 @@ import static org.springframework.boot.test.context.SpringBootTest.WebEnvironmen
 @TestPropertySource(properties = {
         "services.user-service.url=http://localhost:9561",
         "services.notification-service.url=http://localhost:9562",
-        "spring.jpa.hibernate.ddl-auto=create-drop",
-        "spring.cache.type=none"
+        "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 class TaskE2ETest {
 
     @Container
     @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
+    @Container
+    @ServiceConnection(name = "redis")
+    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
+            .withExposedPorts(6379);
 
     static WireMockServer userServiceMock;
     static WireMockServer notificationServiceMock;
@@ -69,6 +75,18 @@ class TaskE2ETest {
         notificationServiceMock.resetAll();
         // Notification is fire-and-forget — stub a default success so it never blocks
         notificationServiceMock.stubFor(post(anyUrl()).willReturn(ok()));
+    }
+
+    // Simulates the trusted headers api-gateway would attach after validating
+    // a JWT (ADR-015) — added once here so every request in this class is
+    // authenticated without repeating headers at each call site.
+    @BeforeEach
+    void authenticateRequests() {
+        restTemplate.getRestTemplate().setInterceptors(List.of((request, body, execution) -> {
+            request.getHeaders().add("X-User-Email", "user@test.com");
+            request.getHeaders().add("X-User-Role", "USER");
+            return execution.execute(request, body);
+        }));
     }
 
     // ── full CRUD flow ────────────────────────────────────────────────────────

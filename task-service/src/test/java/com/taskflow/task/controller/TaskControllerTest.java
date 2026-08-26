@@ -2,7 +2,6 @@ package com.taskflow.task.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taskflow.task.application.TaskService;
-import com.taskflow.task.config.SecurityConfig;
 import com.taskflow.task.controller.dto.CreateTaskRequest;
 import com.taskflow.task.controller.dto.TaskResponse;
 import com.taskflow.task.controller.dto.UpdateTaskRequest;
@@ -14,8 +13,8 @@ import com.taskflow.task.domain.exception.TaskNotFoundException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -35,7 +34,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(TaskController.class)
-@Import(SecurityConfig.class)
+@AutoConfigureMockMvc(addFilters = false)
 class TaskControllerTest {
 
     @Autowired MockMvc mockMvc;

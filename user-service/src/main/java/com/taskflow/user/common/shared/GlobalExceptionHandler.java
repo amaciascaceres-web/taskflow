@@ -1,6 +1,7 @@
 package com.taskflow.user.common.shared;
 
 
+import com.taskflow.user.domain.exception.InvalidCredentialsException;
 import com.taskflow.user.domain.exception.UserAlreadyExistsException;
 import com.taskflow.user.domain.exception.UserNotFoundException;
 
@@ -86,6 +87,22 @@ public class GlobalExceptionHandler {
                         .timestamp(LocalDateTime.now())
                         .status(409)
                         .code("USER_ALREADY_EXISTS")
+                        .message(ex.getMessage())
+                        .path(req.getRequestURI())
+                        .build());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException ex, HttpServletRequest req) {
+
+        log.warn("Failed login attempt on {} {}", req.getMethod(), req.getRequestURI());
+
+        return ResponseEntity.status(401).body(
+                ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(401)
+                        .code("INVALID_CREDENTIALS")
                         .message(ex.getMessage())
                         .path(req.getRequestURI())
                         .build());

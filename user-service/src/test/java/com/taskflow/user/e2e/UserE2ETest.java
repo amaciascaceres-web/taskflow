@@ -1,6 +1,9 @@
 package com.taskflow.user.e2e;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.taskflow.user.controller.dto.LoginRequest;
+import com.taskflow.user.controller.dto.RegisterRequest;
+import com.taskflow.user.controller.dto.TokenResponse;
 import com.taskflow.user.controller.dto.UserRequest;
 import com.taskflow.user.controller.dto.UserResponse;
 
@@ -32,13 +35,13 @@ class UserE2ETest {
     @Autowired TestRestTemplate restTemplate;
     @Autowired ObjectMapper objectMapper;
 
-    // ── full CRUD flow ────────────────────────────────────────────────────────
+    // ── register + profile CRUD flow ────────────────────────────────────────────
 
     @Test
     void fullCrudFlow() {
-        // POST
+        // POST /auth/register
         ResponseEntity<UserResponse> created = restTemplate.postForEntity(
-                "/api/users", httpEntity(validRequest("Alice", "alice-crud@example.com")), UserResponse.class);
+                "/auth/register", httpEntity(registerRequest("Alice", "alice-crud@example.com")), UserResponse.class);
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         Long id = created.getBody().id();
         assertThat(id).isNotNull();
@@ -52,7 +55,7 @@ class UserE2ETest {
         // PUT
         ResponseEntity<UserResponse> updated = restTemplate.exchange(
                 "/api/users/" + id, HttpMethod.PUT,
-                httpEntity(validRequest("Alice Updated", "alice-crud@example.com")), UserResponse.class);
+                httpEntity(profileUpdateRequest("Alice Updated", "alice-crud@example.com")), UserResponse.class);
         assertThat(updated.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(updated.getBody().name()).isEqualTo("Alice Updated");
 
@@ -68,12 +71,12 @@ class UserE2ETest {
     // ── duplicate email ───────────────────────────────────────────────────────
 
     @Test
-    void create_duplicateEmail_returns409() {
-        restTemplate.postForEntity("/api/users",
-                httpEntity(validRequest("Alice", "alice-dup@example.com")), UserResponse.class);
+    void register_duplicateEmail_returns409() {
+        restTemplate.postForEntity("/auth/register",
+                httpEntity(registerRequest("Alice", "alice-dup@example.com")), UserResponse.class);
 
-        ResponseEntity<String> response = restTemplate.postForEntity("/api/users",
-                httpEntity(validRequest("Alice2", "alice-dup@example.com")), String.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/auth/register",
+                httpEntity(registerRequest("Alice2", "alice-dup@example.com")), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         assertThat(response.getBody()).contains("USER_ALREADY_EXISTS");
@@ -82,23 +85,57 @@ class UserE2ETest {
     // ── validation ────────────────────────────────────────────────────────────
 
     @Test
-    void create_missingName_returns400() {
-        UserRequest req = new UserRequest();
-        req.setEmail("noname@example.com");
+    void register_missingEmail_returns400() {
+        RegisterRequest req = new RegisterRequest();
+        req.setPassword("s3cret!");
 
         ResponseEntity<String> response = restTemplate.postForEntity(
-                "/api/users", httpEntity(req), String.class);
+                "/auth/register", httpEntity(req), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).contains("VALIDATION_ERROR");
+    }
+
+    // ── login ─────────────────────────────────────────────────────────────────
+
+    @Test
+    void login_validCredentials_returnsToken() {
+        restTemplate.postForEntity("/auth/register",
+                httpEntity(registerRequest("Carol", "carol@example.com")), UserResponse.class);
+
+        LoginRequest login = new LoginRequest();
+        login.setEmail("carol@example.com");
+        login.setPassword("s3cret!");
+
+        ResponseEntity<TokenResponse> response = restTemplate.postForEntity(
+                "/auth/login", httpEntity(login), TokenResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().token()).isNotBlank();
+    }
+
+    @Test
+    void login_wrongPassword_returns401() {
+        restTemplate.postForEntity("/auth/register",
+                httpEntity(registerRequest("Dave", "dave@example.com")), UserResponse.class);
+
+        LoginRequest login = new LoginRequest();
+        login.setEmail("dave@example.com");
+        login.setPassword("wrong-password");
+
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                "/auth/login", httpEntity(login), String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).contains("INVALID_CREDENTIALS");
     }
 
     // ── GET all ───────────────────────────────────────────────────────────────
 
     @Test
     void getAll_returnsCreatedUsers() {
-        restTemplate.postForEntity("/api/users",
-                httpEntity(validRequest("Bob", "bob@example.com")), UserResponse.class);
+        restTemplate.postForEntity("/auth/register",
+                httpEntity(registerRequest("Bob", "bob@example.com")), UserResponse.class);
 
         ResponseEntity<List> response = restTemplate.getForEntity("/api/users", List.class);
 
@@ -108,7 +145,16 @@ class UserE2ETest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private UserRequest validRequest(String name, String email) {
+    private RegisterRequest registerRequest(String name, String email) {
+        RegisterRequest req = new RegisterRequest();
+        req.setName(name);
+        req.setEmail(email);
+        req.setPassword("s3cret!");
+        req.setTeam("Backend");
+        return req;
+    }
+
+    private UserRequest profileUpdateRequest(String name, String email) {
         UserRequest req = new UserRequest();
         req.setName(name);
         req.setEmail(email);

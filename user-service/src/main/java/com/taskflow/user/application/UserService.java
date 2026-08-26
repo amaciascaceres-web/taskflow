@@ -3,7 +3,6 @@ package com.taskflow.user.application;
 import com.taskflow.user.application.mapper.UserMapper;
 import com.taskflow.user.controller.dto.UserRequest;
 import com.taskflow.user.controller.dto.UserResponse;
-import com.taskflow.user.domain.exception.UserAlreadyExistsException;
 import com.taskflow.user.domain.exception.UserNotFoundException;
 import com.taskflow.user.infrastructure.entity.UserEntity;
 import com.taskflow.user.infrastructure.repository.UserRepository;
@@ -22,21 +21,6 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-
-    public UserResponse create(UserRequest request) {
-        log.info("Creating user with name='{}', email='{}', team='{}'",
-                request.getName(), request.getEmail(), request.getTeam());
-
-        if (userRepository.existsByEmail(request.getEmail())) {
-            throw new UserAlreadyExistsException(request.getEmail());
-        }
-
-        UserEntity savedUser = userRepository.save(userMapper.toEntity(request));
-
-        log.info("Created user with id={}", savedUser.getId());
-
-        return userMapper.toResponse(savedUser);
-    }
 
     public List<UserResponse> getAll() {
         return userRepository.findAll()

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.taskflow.user.application.UserService;
 import com.taskflow.user.controller.dto.UserRequest;
 import com.taskflow.user.controller.dto.UserResponse;
-import com.taskflow.user.domain.exception.UserAlreadyExistsException;
 import com.taskflow.user.domain.exception.UserNotFoundException;
 
 import org.junit.jupiter.api.Test;
@@ -41,58 +40,6 @@ class UserControllerTest {
         mockMvc.perform(get("/api/users/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
-    }
-
-    // ── POST /api/users ───────────────────────────────────────────────────────
-
-    @Test
-    void create_validBody_returns201() throws Exception {
-        when(userService.create(any())).thenReturn(USER_RESPONSE);
-
-        mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validRequest())))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.email").value("alice@example.com"))
-                .andExpect(jsonPath("$.team").value("Backend"));
-    }
-
-    @Test
-    void create_missingName_returns400WithValidationError() throws Exception {
-        UserRequest req = validRequest();
-        req.setName(null);
-
-        mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors[0].field").value("name"));
-    }
-
-    @Test
-    void create_missingEmail_returns400WithValidationError() throws Exception {
-        UserRequest req = validRequest();
-        req.setEmail(null);
-
-        mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(req)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.errors[0].field").value("email"));
-    }
-
-    @Test
-    void create_duplicateEmail_returns409() throws Exception {
-        when(userService.create(any())).thenThrow(new UserAlreadyExistsException("alice@example.com"));
-
-        mockMvc.perform(post("/api/users")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(validRequest())))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("USER_ALREADY_EXISTS"));
     }
 
     // ── GET /api/users ────────────────────────────────────────────────────────

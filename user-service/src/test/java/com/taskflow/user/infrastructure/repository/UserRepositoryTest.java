@@ -62,6 +62,8 @@ class UserRepositoryTest {
                 .name(name)
                 .email(email)
                 .team(team)
+                .password("hashed-password")
+                .role("USER")
                 .build();
     }
 }

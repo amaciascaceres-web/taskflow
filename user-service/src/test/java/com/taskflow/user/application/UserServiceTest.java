@@ -3,7 +3,6 @@ package com.taskflow.user.application;
 import com.taskflow.user.application.mapper.UserMapper;
 import com.taskflow.user.controller.dto.UserRequest;
 import com.taskflow.user.controller.dto.UserResponse;
-import com.taskflow.user.domain.exception.UserAlreadyExistsException;
 import com.taskflow.user.domain.exception.UserNotFoundException;
 import com.taskflow.user.infrastructure.entity.UserEntity;
 import com.taskflow.user.infrastructure.repository.UserRepository;
@@ -38,32 +37,6 @@ class UserServiceTest {
     private static final UserResponse RESPONSE = new UserResponse(
             1L, "Alice", "Backend", "alice@example.com",
             LocalDateTime.now(), LocalDateTime.now());
-
-    // ── create ────────────────────────────────────────────────────────────────
-
-    @Test
-    void create_newEmail_savesAndReturnsResponse() {
-        when(userRepository.existsByEmail("alice@example.com")).thenReturn(false);
-        when(userMapper.toEntity(any())).thenReturn(ENTITY);
-        when(userRepository.save(ENTITY)).thenReturn(ENTITY);
-        when(userMapper.toResponse(ENTITY)).thenReturn(RESPONSE);
-
-        UserResponse result = userService.create(validRequest());
-
-        assertThat(result.id()).isEqualTo(1L);
-        verify(userRepository).save(ENTITY);
-    }
-
-    @Test
-    void create_duplicateEmail_throwsUserAlreadyExistsException() {
-        when(userRepository.existsByEmail("alice@example.com")).thenReturn(true);
-
-        assertThatThrownBy(() -> userService.create(validRequest()))
-                .isInstanceOf(UserAlreadyExistsException.class)
-                .hasMessageContaining("alice@example.com");
-
-        verify(userRepository, never()).save(any());
-    }
 
     // ── getAll ────────────────────────────────────────────────────────────────
 
