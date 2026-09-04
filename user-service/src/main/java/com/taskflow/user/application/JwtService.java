@@ -20,9 +20,10 @@ public class JwtService {
     @Value("${jwt.expiration-ms:86400000}")
     private long expirationMs;
 
-    public String generateToken(String email, String role) {
+    public String generateToken(Long id, String email, String role) {
         return Jwts.builder()
                 .subject(email)
+                .claim("id", String.valueOf(id))
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expirationMs))

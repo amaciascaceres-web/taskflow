@@ -5,6 +5,7 @@ import com.taskflow.task.domain.exception.ServiceUnavailableException;
 import com.taskflow.task.domain.exception.TaskNotFoundException;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -80,6 +81,25 @@ public class GlobalExceptionHandler {
                         .status(503)
                         .code("SERVICE_UNAVAILABLE")
                         .message("A downstream service is unavailable. Please try again later.")
+                        .path(req.getRequestURI())
+                        .build());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+            AccessDeniedException ex, HttpServletRequest req) {
+
+        log.warn("Access denied processing {} {}: {}",
+                req.getMethod(),
+                req.getRequestURI(),
+                ex.getMessage());
+
+        return ResponseEntity.status(403).body(
+                ApiErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(403)
+                        .code("ACCESS_DENIED")
+                        .message("You do not have permission to perform this action")
                         .path(req.getRequestURI())
                         .build());
     }

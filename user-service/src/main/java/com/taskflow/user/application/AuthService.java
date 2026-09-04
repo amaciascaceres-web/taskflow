@@ -61,6 +61,6 @@ public class AuthService {
                 .filter(u -> passwordEncoder.matches(request.getPassword(), u.getPassword()))
                 .orElseThrow(InvalidCredentialsException::new);
 
-        return new TokenResponse(jwtService.generateToken(user.getEmail(), user.getRole()));
+        return new TokenResponse(jwtService.generateToken(user.getId(), user.getEmail(), user.getRole()));
     }
 }

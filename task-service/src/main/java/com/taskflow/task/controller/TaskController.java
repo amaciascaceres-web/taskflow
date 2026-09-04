@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,6 +46,7 @@ public class TaskController {
     }
 
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<TaskResponse> create(
             @Valid @RequestBody CreateTaskRequest request) {
         TaskResponse response = taskService.createTask(request);
@@ -53,11 +55,13 @@ public class TaskController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @taskSecurity.isOwner(#id, authentication)")
     public ResponseEntity<TaskResponse> get(@PathVariable Long id) {
         return ResponseEntity.ok(taskService.getById(id));
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PagedResponse<TaskResponse>> getAll(
             @RequestParam(required = false) List<String> status,
             @RequestParam(required = false) List<Long> assigneeId,
@@ -71,6 +75,7 @@ public class TaskController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @taskSecurity.isOwner(#id, authentication)")
     public ResponseEntity<TaskResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskRequest request) {
@@ -78,6 +83,7 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN') or @taskSecurity.isOwner(#id, authentication)")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         taskService.delete(id);
         return ResponseEntity.noContent().build();

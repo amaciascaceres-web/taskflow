@@ -79,12 +79,15 @@ class TaskE2ETest {
 
     // Simulates the trusted headers api-gateway would attach after validating
     // a JWT (ADR-015) — added once here so every request in this class is
-    // authenticated without repeating headers at each call site.
+    // authenticated without repeating headers at each call site. Authenticated
+    // as ADMIN so @PreAuthorize (ADR-016) never blocks this suite on ownership
+    // or role — that's covered separately in TaskControllerTest/TaskSecurityTest.
     @BeforeEach
     void authenticateRequests() {
         restTemplate.getRestTemplate().setInterceptors(List.of((request, body, execution) -> {
+            request.getHeaders().add("X-User-Id", "1");
             request.getHeaders().add("X-User-Email", "user@test.com");
-            request.getHeaders().add("X-User-Role", "USER");
+            request.getHeaders().add("X-User-Role", "ADMIN");
             return execution.execute(request, body);
         }));
     }

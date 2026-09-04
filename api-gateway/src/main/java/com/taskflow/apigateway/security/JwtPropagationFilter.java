@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 @Component
 public class JwtPropagationFilter implements GlobalFilter, Ordered {
 
+    private static final String USER_ID_HEADER = "X-User-Id";
     private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String USER_ROLE_HEADER = "X-User-Role";
 
@@ -34,6 +35,7 @@ public class JwtPropagationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate()
                 .headers(headers -> {
+                    headers.remove(USER_ID_HEADER);
                     headers.remove(USER_EMAIL_HEADER);
                     headers.remove(USER_ROLE_HEADER);
                 });
@@ -45,6 +47,7 @@ public class JwtPropagationFilter implements GlobalFilter, Ordered {
 
         try {
             Claims claims = jwtService.validateAndExtractClaims(authHeader.substring(7));
+            requestBuilder.header(USER_ID_HEADER, claims.get("id", String.class));
             requestBuilder.header(USER_EMAIL_HEADER, claims.getSubject());
             requestBuilder.header(USER_ROLE_HEADER, claims.get("role", String.class));
         } catch (JwtException e) {

@@ -29,6 +29,7 @@ class TaskSecurityTest {
     @Test
     void request_withTrustedHeaders_isAuthenticated() throws Exception {
         mockMvc.perform(get("/api/tasks/ping")
+                        .header("X-User-Id", "1")
                         .header("X-User-Email", "user@test.com")
                         .header("X-User-Role", "USER"))
                 .andExpect(status().isOk());
@@ -37,6 +38,14 @@ class TaskSecurityTest {
     @Test
     void request_withoutHeaders_returns403() throws Exception {
         mockMvc.perform(get("/api/tasks/ping"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void request_withoutIdHeader_returns403() throws Exception {
+        mockMvc.perform(get("/api/tasks/ping")
+                        .header("X-User-Email", "user@test.com")
+                        .header("X-User-Role", "USER"))
                 .andExpect(status().isForbidden());
     }
 
@@ -50,6 +59,15 @@ class TaskSecurityTest {
     @Test
     void request_withOnlyRoleHeader_returns403() throws Exception {
         mockMvc.perform(get("/api/tasks/ping")
+                        .header("X-User-Role", "USER"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void request_withMalformedIdHeader_returns403() throws Exception {
+        mockMvc.perform(get("/api/tasks/ping")
+                        .header("X-User-Id", "not-a-number")
+                        .header("X-User-Email", "user@test.com")
                         .header("X-User-Role", "USER"))
                 .andExpect(status().isForbidden());
     }

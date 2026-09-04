@@ -36,6 +36,7 @@ import static org.mockito.Mockito.when;
 class JwtPropagationFilterTest {
 
     private static final String SECRET = "test-secret-min-32-chars-long-ok!";
+    private static final String USER_ID_HEADER = "X-User-Id";
     private static final String USER_EMAIL_HEADER = "X-User-Email";
     private static final String USER_ROLE_HEADER = "X-User-Role";
 
@@ -59,6 +60,7 @@ class JwtPropagationFilterTest {
         filter.filter(exchange, chain).block();
 
         ServerWebExchange forwarded = capturedExchange();
+        assertThat(forwarded.getRequest().getHeaders().get(USER_ID_HEADER)).isNull();
         assertThat(forwarded.getRequest().getHeaders().get(USER_EMAIL_HEADER)).isNull();
         assertThat(forwarded.getRequest().getHeaders().get(USER_ROLE_HEADER)).isNull();
     }
@@ -66,40 +68,45 @@ class JwtPropagationFilterTest {
     @Test
     void noAuthorizationHeader_stripsClientSuppliedTrustedHeaders() {
         ServerWebExchange exchange = exchange(MockServerHttpRequest.get("/api/tasks")
+                .header(USER_ID_HEADER, "999")
                 .header(USER_EMAIL_HEADER, "attacker@evil.com")
                 .header(USER_ROLE_HEADER, "ADMIN"));
 
         filter.filter(exchange, chain).block();
 
         ServerWebExchange forwarded = capturedExchange();
+        assertThat(forwarded.getRequest().getHeaders().get(USER_ID_HEADER)).isNull();
         assertThat(forwarded.getRequest().getHeaders().get(USER_EMAIL_HEADER)).isNull();
         assertThat(forwarded.getRequest().getHeaders().get(USER_ROLE_HEADER)).isNull();
     }
 
     @Test
     void validToken_injectsTrustedHeadersFromClaims() {
-        String token = tokenFor("alice@example.com", "USER");
+        String token = tokenFor(1L, "alice@example.com", "USER");
         ServerWebExchange exchange = exchange(MockServerHttpRequest.get("/api/tasks")
                 .header("Authorization", "Bearer " + token));
 
         filter.filter(exchange, chain).block();
 
         ServerWebExchange forwarded = capturedExchange();
+        assertThat(forwarded.getRequest().getHeaders().getFirst(USER_ID_HEADER)).isEqualTo("1");
         assertThat(forwarded.getRequest().getHeaders().getFirst(USER_EMAIL_HEADER)).isEqualTo("alice@example.com");
         assertThat(forwarded.getRequest().getHeaders().getFirst(USER_ROLE_HEADER)).isEqualTo("USER");
     }
 
     @Test
     void validToken_overridesClientSuppliedTrustedHeaders() {
-        String token = tokenFor("alice@example.com", "USER");
+        String token = tokenFor(1L, "alice@example.com", "USER");
         ServerWebExchange exchange = exchange(MockServerHttpRequest.get("/api/tasks")
                 .header("Authorization", "Bearer " + token)
+                .header(USER_ID_HEADER, "999")
                 .header(USER_EMAIL_HEADER, "attacker@evil.com")
                 .header(USER_ROLE_HEADER, "ADMIN"));
 
         filter.filter(exchange, chain).block();
 
         ServerWebExchange forwarded = capturedExchange();
+        assertThat(forwarded.getRequest().getHeaders().get(USER_ID_HEADER)).containsExactly("1");
         assertThat(forwarded.getRequest().getHeaders().get(USER_EMAIL_HEADER)).containsExactly("alice@example.com");
         assertThat(forwarded.getRequest().getHeaders().get(USER_ROLE_HEADER)).containsExactly("USER");
     }
@@ -125,10 +132,11 @@ class JwtPropagationFilterTest {
         return MockServerWebExchange.from(requestBuilder.build());
     }
 
-    private static String tokenFor(String subject, String role) {
+    private static String tokenFor(Long id, String subject, String role) {
         SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .subject(subject)
+                .claim("id", String.valueOf(id))
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + 60_000))

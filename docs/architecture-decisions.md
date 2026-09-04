@@ -449,3 +449,96 @@ would need to validate the JWT itself again.
   this is what the Day 31 practice code did; it defeats the stateless
   benefit JWT is supposed to provide and couples services via a shared
   schema
+
+---
+
+## ADR-016: RBAC with @PreAuthorize and domain object security
+
+**Date:** 2026-08-27
+**Status:** Accepted
+
+**Context:**
+URL-level authorization (`.requestMatchers(...).hasRole(...)` in
+`SecurityConfig`) can express "only ADMIN may hit this path", but not
+"only the assignee of *this specific task* may hit this path" — that
+requires knowing which resource the URL points to, not just the URL
+shape. TaskFlow needs both: `ROLE_USER` manages their own tasks,
+`ROLE_ADMIN` manages everyone's.
+
+The trusted principal `HeaderAuthenticationFilter` builds only carried
+an email (ADR-015). `TaskEntity` has no `ownerEmail` — ownership is
+`assigneeId`, a `Long` referencing user-service's internal id. Comparing
+an email against a `Long` doesn't work, so an ownership check needs the
+authenticated user's numeric id, not just their email.
+
+**Decision:**
+- Method-level authorization via `@EnableMethodSecurity` +
+  `@PreAuthorize` on `TaskController`, not URL patterns: `create` only
+  requires `isAuthenticated()`; `get`/`update`/`delete` require
+  `hasRole('ADMIN') or @taskSecurity.isOwner(#id, authentication)`;
+  `getAll` (list-everything) is `hasRole('ADMIN')` only.
+- Ownership logic lives in `TaskSecurityService` (`@Service("taskSecurity")`),
+  not inline SpEL — one `TaskRepository.findById` lookup, independently
+  unit-testable with Mockito, no Spring context required.
+- Extended the ADR-015 header set with `X-User-Id`: `JwtService`
+  (user-service) adds an `id` claim, `JwtPropagationFilter` (api-gateway)
+  strips-then-sets it exactly like the existing headers, and
+  `HeaderAuthenticationFilter` (task-service) now builds an
+  `AuthenticatedUser(Long id, String email)` record as the principal
+  instead of a bare email string — so `TaskSecurityService.isOwner()`
+  can compare `principal.id()` against `TaskEntity.assigneeId` directly,
+  no extra lookup needed.
+
+**Consequences:**
++ Authorization logic sits next to the code it protects and is testable
+  in isolation (`TaskSecurityServiceTest`, pure Mockito, no HTTP context)
++ No network call to resolve ownership — the id travels in the same
+  token/header chain the email and role already use
+- `@EnableMethodSecurity` must be present in *any* Spring context that
+  exercises `@PreAuthorize`, including test slices — a `@WebMvcTest`
+  that forgets to `@Import` the config carrying it makes `@PreAuthorize`
+  silently inert (every call falls through unauthorized), a mistake this
+  project already made once wiring up `TaskControllerTest`
+- `AccessDeniedException` needs its own `@ExceptionHandler` (403,
+  `ACCESS_DENIED`) — in production `ExceptionTranslationFilter` catches
+  it before `@RestControllerAdvice` ever sees it, but any test that
+  disables the security filter chain (`addFilters = false`) loses that
+  safety net and the exception falls through to the generic 500 handler
+  unless one exists
+
+**Alternatives considered:**
+- Resolve `assigneeId` against user-service inside `TaskSecurityService`
+  instead of propagating `X-User-Id`: rejected — adds a network call to
+  every authorization check and couples task-service to user-service's
+  availability for a decision that should be purely local (ADR-009)
+- URL-level authorization only: rejected — cannot express per-resource
+  ownership without inspecting the path variable, which is exactly what
+  `@PreAuthorize` + SpEL is for
+
+---
+
+## Known gap: no request tracing
+
+**Status:** Not implemented. Identified 2026-09-04, during Day 32 work.
+
+No trace/correlation id is generated, propagated across services, or
+attached to log lines anywhere in the system. `JwtPropagationFilter`
+(api-gateway) rewrites `X-User-Id`/`X-User-Email`/`X-User-Role` on every
+request but adds nothing like `X-Trace-Id`; `UserServiceClient`
+(task-service → user-service) sends its outbound call with no
+correlation header either. As a result, correlating a single request's
+log lines across api-gateway, task-service, and user-service today means
+grepping by `taskId`/`assigneeId` by hand — which doesn't work once two
+requests for the same task overlap in time.
+
+Worth revisiting once Kafka lands (Days 35-36), since a trace id is also
+what makes producer→consumer log correlation possible across a broker.
+Two options, not yet decided between:
+- Manual `X-Trace-Id` header, generated at api-gateway if absent and
+  propagated the same strip-then-set way as `X-User-Id` (ADR-015),
+  picked up into SLF4J's MDC by each service so it shows up in every log
+  line without touching call sites individually
+- Micrometer Tracing (Spring Boot's Sleuth successor) + a backend like
+  Zipkin, which instruments `RestTemplate` and Kafka automatically
+  instead of wiring the header by hand — more setup, no per-call-site
+  maintenance
